@@ -9,9 +9,6 @@
 #include "gmp.h"
 using namespace std;
 
-// @TODO
-// Split into header. It's too mess!
-
 class Mono{
     public:
         mpz_t coeff;        // coefficient can be rational number.
@@ -35,8 +32,7 @@ class Poly{
     void println();
 
     Poly operator = (Poly &);
-    //Poly operator + (Poly &);
-    Poly add (Poly X);
+    Poly operator + (Poly &);
     Poly operator - (Poly &);
     Poly operator * (Poly &);
     Poly operator / (Poly &);
@@ -74,7 +70,7 @@ Mono::Mono(string LaTeX){
     //  3. Deal with constant such as '10'                (Solved)                      //
     //  4. If we can, (but I think I don't have enough time) make '7x^{13}y^{2}z'       //
     //  5. Deal with x_1^7 x_2^3...                       (Solved)                      //
-    //****************MonoMonoMonoMono********************************************************************
+    //************************************************************************************
     //************************************************************************************
 
     // @TODO
@@ -104,18 +100,15 @@ Mono::Mono(string LaTeX){
 
 
 Mono::Mono(mpz_t coeff_input, string vari, int deg){
+    mpz_init(coeff);
     mpz_set(coeff, coeff_input);
     univariate.push_front(make_pair(vari, deg));
 }
 
 Mono::Mono(mpz_t coeff_input, forward_list<pair<string, int>> univariate_input){
-    //mpz_set(this->coeff, coeff);
-    mpz_set(coeff, coeff_input);
-    // forward_list<pair<string, int>>::iterator iter;
+    mpz_init(coeff);
 
-    // ERROR HERE!
-    // @TODO
-    // Fix error
+    mpz_set(coeff, coeff_input);
 
     for (auto iter = univariate_input.begin(); iter != univariate_input.end(); ++iter){
         univariate.push_front(make_pair(iter->first, iter->second));
@@ -153,9 +146,6 @@ int lexicographic_order(Mono lhs, Mono rhs){
 }
 
 int deg_order(Mono lhs, Mono rhs){
-    // I think it is not a lexicographic_order, or I just misunderstood the problem
-    // @TODO
-    // Implement degree order.
 
     forward_list<pair<string, int>>::iterator liter;
     forward_list<pair<string, int>>::iterator riter;
@@ -180,21 +170,14 @@ int deg_order(Mono lhs, Mono rhs){
 
 // Print monomial in LaTeX-form.
 void Mono::print(){
-    cout << "Hello, World" << endl;
     if (!mpz_cmp_si(coeff,0)){
-        cout << "0" << endl;
+        cout << "0";
         return;
     }
 
-    cout << "Hello, World" << endl;
-    //cout << coeff;
-    //int n = 10;
-    //gmp_printf ("fixed point mpf %.*Ff with %d digits\n", n, coeff, n);
-    //gmp_printf("%Zd", coeff);
-
-    cout << "Hello, World" << endl;
-
     forward_list<pair<string, int>>::iterator iter;
+
+    cout << coeff;
 
     for (iter = univariate.begin(); iter !=univariate.end(); ++iter){
         cout << iter->first << "^" << iter->second;
@@ -257,7 +240,11 @@ Poly::Poly(string LaTeX){
         mono.push_front(token_mono);
         start = end + 1;
     }
-    insert(LaTeX.substr(start));
+
+    Mono token_mono(LaTeX.substr(start));
+    if (LaTeX.at(start - 1) == 45)
+        mpz_neg(token_mono.coeff, token_mono.coeff);
+    mono.push_front(token_mono);
 
     mono.reverse();
 
@@ -268,6 +255,7 @@ Poly::Poly(string LaTeX){
 Poly::Poly(forward_list<Mono> poly){
     
     forward_list<Mono>::iterator iter;
+    mono.clear();
 
     for (iter = poly.begin(); iter != poly.end(); ++iter){
         Mono token(iter->coeff, iter->univariate);
@@ -341,7 +329,8 @@ void Poly::delete_zero(){
 }
 
 
-Poly::Poly(const Poly& X){
+
+Poly::Poly(const Poly &X){
     // Be care not to shallow copy
     // In general, we want to use h = f + g, then use f, g, and h independently.
 
@@ -355,6 +344,7 @@ Poly::Poly(const Poly& X){
         Mono token(iter->coeff, iter->univariate);
         mono.push_front(token);
     }
+
     mono.reverse();
 }
  
@@ -381,8 +371,7 @@ Poly Poly::operator = (Poly & X){
 }
 
 
-//Poly Poly::operator + (Poly & X){
-Poly Poly::add (Poly X){
+Poly Poly::operator + (Poly & X){
 
     forward_list<Mono> Ymono;
     int flag = 0;
@@ -393,8 +382,7 @@ Poly Poly::add (Poly X){
     forward_list<Mono>::iterator Xiter_end = X.mono.end();
     forward_list<Mono>::iterator iter_end = mono.end();
 
-	while(!flag){
-
+    while(flag == 0){
         flag = lexicographic_order(*Xiter, *iter);
 
         if (flag == 1){
@@ -407,6 +395,7 @@ Poly Poly::add (Poly X){
             ++iter;
         } else{
             Mono token(*Xiter);
+            mpz_init(token.coeff);
             mpz_add(token.coeff, token.coeff, iter->coeff);
             Ymono.push_front(token);
             ++Xiter;
@@ -418,16 +407,16 @@ Poly Poly::add (Poly X){
             flag += 1000;
         if (iter == iter_end)
             flag += 2000;
-	}
+    }
 
-    if (flag == 1000){
+    if (flag == 2000){
         while(Xiter != Xiter_end){
             Mono token(*Xiter);
             Ymono.push_front(token);
             ++Xiter;
         }
     }
-    else if(flag == 2000){
+    else if(flag == 1000){
         while(iter != iter_end){
             Mono token(*iter);
             Ymono.push_front(token);
@@ -435,8 +424,10 @@ Poly Poly::add (Poly X){
         }
     }
     else if (flag == 3000){
+        // No instruction
         cout << "flag = 3000" << endl;
     }else{
+        // Cannot be occur
         cout << "ERROR" << endl;
     }
 
@@ -472,6 +463,7 @@ Poly Poly::operator - (Poly & X){
             ++iter;
         } else{
             Mono token(*Xiter);
+            mpz_init(token.coeff);
             mpz_sub(token.coeff, token.coeff, iter->coeff);
             Ymono.push_front(token);
             ++Xiter;
@@ -561,21 +553,24 @@ int main(){
 
 
     Poly p1("5 x^2 y^3 - 7 x^1 y^4 z^5 + 19 z^1 + 20");
-    Poly p2("7 x^3 y^2 z^2");
+    Poly p2("7 x^3 y^2 z^2 - 4 x^2 z^1");
     Poly p3(" ");
 
-    //p1.println();
-    //p2.println();
-    //p3.println();
+    p1.println();
+    p2.println();
+    p3.println();
 
-    //Poly p4(p1+p2);
+    Poly p4(p1+p2);
 
-    Poly p4;
-    p4 = p1+p2;
+    //Poly p4;
+    //p4 = p1+p2;
 
     p4.println();
 
-    cout << "ERROR FIXED" << endl;
+    Poly p5("-7 x^3 y^2 z^2");
+    Poly p6(p4+p5);
+    //p6.println();
 
+    cout << "NO SEGMENTATION FAULT" << endl;
     return 0;
 }
