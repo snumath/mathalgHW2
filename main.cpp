@@ -1,12 +1,14 @@
-#include <iostream>
-#include <forward_list>
+#include <algorithm>
 #include <cstring>
-#include <sstream>
+#include <forward_list>
+#include <iostream>
 #include <iterator>
+#include <sstream>
 #include <vector>
 #include <utility>
 #include "gmpxx.h"
 #include "gmp.h"
+
 using namespace std;
 
 class Mono{
@@ -19,8 +21,10 @@ class Mono{
         Mono(string LaTeX);
         Mono(mpz_t coeff, string vari, int deg);
         Mono(mpz_t coeff, forward_list<pair<string, int>> univariate_input);
+        Mono(const Mono &X);
         void print();
         void println();
+        Mono product(Mono multiplicand);
 };
 
 class Poly{
@@ -30,6 +34,7 @@ class Poly{
     void insert(Mono mono);
     bool isZero();
     void println();
+    void sort();
 
     Poly operator = (Poly &);
     Poly operator + (Poly &);
@@ -85,7 +90,7 @@ Mono::Mono(string LaTeX){
     ss >> token;
     
     if (token.empty()){
-        univariate.push_front(make_pair(token,0));
+        univariate.push_front(make_pair(" ",0));
         return;
     }
 
@@ -116,13 +121,44 @@ Mono::Mono(mpz_t coeff_input, forward_list<pair<string, int>> univariate_input){
     univariate.reverse();
 }
 
+Mono::Mono(const Mono &X){
+
+    univariate.clear();
+    mpz_init(coeff);
+    mpz_set(coeff, X.coeff);
+    
+    forward_list<pair<string, int>> univ = X.univariate;
+
+    forward_list<pair<string, int>>::iterator iter;
+
+    for (iter = univ.begin(); iter != univ.end(); ++iter){
+        univariate.push_front(make_pair(iter->first, iter->second));
+    }
+
+    univariate.reverse();
+}
+
 int lexicographic_order(Mono lhs, Mono rhs){
-    forward_list<pair<string, int>>::iterator liter;
-    forward_list<pair<string, int>>::iterator riter;
+    forward_list<pair<string, int>>::iterator liter = lhs.univariate.begin();
+    forward_list<pair<string, int>>::iterator riter = rhs.univariate.begin();
+
+    string a;
+    string b;
 
     while((liter != lhs.univariate.end()) && (riter != rhs.univariate.end())){
-        if (liter->first.compare(riter->first)){
-            return (liter->first.compare(riter->first));
+        a = liter->first;
+        b = riter->first;
+
+        //if (liter->first.compare(riter->first) != 0){
+        if (a.compare(b) != 0){
+            if (a.compare(b) < 0)
+                return 1;
+            if (a.compare(b) > 0)
+                return -1;
+            else{
+                cout << "ERROR" << endl;
+                return 0;
+            }
         }
         else{
             if (liter->second > riter->second)
@@ -194,13 +230,85 @@ void Mono::println(){
 
     forward_list<pair<string, int>>::iterator iter;
 
-    for (iter = univariate.begin(); iter !=univariate.end(); ++iter){
+    for (iter = univariate.begin(); iter != univariate.end(); ++iter){
         cout << iter->first << "^" << iter->second;
     }
 
     cout << endl;
 }
 
+
+Mono Mono::product(Mono multiplicand){
+    mpz_t newCoeff;
+    mpz_init(newCoeff);
+
+    mpz_mul(newCoeff, coeff, multiplicand.coeff);
+
+
+    forward_list<pair<string, int>> Yuniv;
+    int flag = 0;
+
+    forward_list<pair<string, int>>::iterator iter = univariate.begin();
+    forward_list<pair<string, int>>::iterator Xiter = multiplicand.univariate.begin();
+
+    cout << iter->first << ", " << Xiter->first << endl;
+
+    if (iter->first == " "){
+        cout << 1234 <<endl;
+    }
+
+    if (Xiter->first == " "){
+        cout << 1234 <<endl;
+    }
+
+    forward_list<pair<string, int>>::iterator iter_end = univariate.end();
+    forward_list<pair<string, int>>::iterator Xiter_end = multiplicand.univariate.end();
+
+    while(flag == 0){
+        flag = iter->first.compare(Xiter->first);
+
+        if (flag > 0){
+            Yuniv.push_front(make_pair(Xiter->first, Xiter->second));
+            ++Xiter;
+        } else if (flag < 0){
+            Yuniv.push_front(make_pair(iter->first, iter->second));
+            ++iter;
+        } else{
+            Yuniv.push_front(make_pair(iter->first, iter->second + Xiter->second));
+            ++iter;
+            ++Xiter;
+        }
+
+        flag = 0;
+        if (Xiter == Xiter_end)
+            flag += 1000;
+        if (iter == iter_end)
+            flag += 2000;
+    }
+
+    if (flag == 2000){
+        while(Xiter != Xiter_end){
+            Yuniv.push_front(make_pair(Xiter->first, Xiter->second));
+            ++Xiter;
+        }
+    }
+    else if(flag == 1000){
+        while(iter != iter_end){
+            Yuniv.push_front(make_pair(iter->first, iter->second));
+            ++iter;
+        }
+    }
+    else if (flag == 3000){
+        // No instruction
+    }else{
+        // Cannot be occur
+        cout << "ERROR" << endl;
+    }
+
+    Yuniv.reverse();
+    Mono Y(newCoeff, Yuniv);
+    return Y;
+}
 
 //**************************************************************
 //**************************************************************
@@ -221,9 +329,13 @@ Poly::Poly(string LaTeX){
     // Also remark that insert(token_mono) is too slow!
 
     size_t start = 0, end = 0;
+    if (LaTeX.at(0) == '-')
+        start++;
 
     if ((end = LaTeX.find_first_of("+-", start)) != string::npos) {
         Mono token_mono(LaTeX.substr(start, end));
+        if (start == 1)
+            mpz_neg(token_mono.coeff, token_mono.coeff);
         mono.push_front(token_mono);
         start = end + 1;
     }
@@ -265,6 +377,23 @@ Poly::Poly(forward_list<Mono> poly){
     mono.reverse();
 }
 
+Poly::Poly(const Poly &X){
+    // Be care not to shallow copy
+    // In general, we want to use h = f + g, then use f, g, and h independently.
+
+    mono.clear();
+    
+    forward_list<Mono> poly = X.mono;
+
+    forward_list<Mono>::iterator iter;
+    for (iter = poly.begin(); iter != poly.end(); ++iter){
+        Mono token(iter->coeff, iter->univariate);
+        mono.push_front(token);
+    }
+
+    mono.reverse();
+}
+ 
 void Poly::insert(Mono token_mono){
     // @TODO
     // Make insert algorithm
@@ -293,11 +422,18 @@ void Poly::insert(Mono token_mono){
 }
 
 bool Poly::isZero(){
-    return (!mpz_cmp_si(mono.begin()->coeff,0));
+    if (mono.begin() == mono.end())
+        return true;
+    return (mpz_cmp_si(mono.begin()->coeff,0));
     // If leading term is zero, then this polynomial should be zero
 }
 
 void Poly::println(){
+
+    if (mono.begin() == mono.end()){
+        cout << "0" << endl;
+        return;
+    }
 
     if (!mpz_cmp_si(mono.begin()->coeff,0)){
         cout << "0" << endl;
@@ -328,26 +464,13 @@ void Poly::delete_zero(){
     */
 }
 
-
-
-Poly::Poly(const Poly &X){
-    // Be care not to shallow copy
-    // In general, we want to use h = f + g, then use f, g, and h independently.
-
-    mono.clear();
-    
-    forward_list<Mono> poly = X.mono;
-
-    forward_list<Mono>::iterator iter;
-    for (iter = poly.begin(); iter != poly.end(); ++iter){
-        cout << "Great Dongsu" << endl;
-        Mono token(iter->coeff, iter->univariate);
-        mono.push_front(token);
-    }
-
-    mono.reverse();
+void Poly::sort(){
+    mono.sort( [](const Mono &a, const Mono &b ) {
+        return (lexicographic_order(a,b) >= 0);
+        } );
 }
- 
+
+
 // Before operator, assume that we have sorted in order
 // For this, I'll use lexicographical order
 // I think using Karatsuba algorithm is not good for this :(
@@ -357,17 +480,24 @@ Poly Poly::operator = (Poly & X){
     // Be care not to shallow copy
     // In general, we want to use h = f + g, then use f, g, and h independently.
 
+    /*
     mono.clear();
     
-    forward_list<Mono> poly = X.mono;
+    //forward_list<Mono> poly = X.mono;
 
-    forward_list<Mono>::iterator iter;
-    for (iter = poly.begin(); iter != poly.end(); ++iter){
+    //forward_list<Mono>::iterator iter;
+    for (auto iter = X.mono.begin(); iter != X.mono.end(); ++iter){
         Mono token(iter->coeff, iter->univariate);
+        //Mono token(*iter);
         mono.push_front(token);
     }
     mono.reverse();
     return *this;
+    */
+
+
+   Poly Y(X);
+   return Y;
 }
 
 
@@ -376,11 +506,11 @@ Poly Poly::operator + (Poly & X){
     forward_list<Mono> Ymono;
     int flag = 0;
 
-    forward_list<Mono>::iterator Xiter = X.mono.begin();
     forward_list<Mono>::iterator iter = mono.begin();
+    forward_list<Mono>::iterator Xiter = X.mono.begin();
 
-    forward_list<Mono>::iterator Xiter_end = X.mono.end();
     forward_list<Mono>::iterator iter_end = mono.end();
+    forward_list<Mono>::iterator Xiter_end = X.mono.end();
 
     while(flag == 0){
         flag = lexicographic_order(*Xiter, *iter);
@@ -394,12 +524,11 @@ Poly Poly::operator + (Poly & X){
             Ymono.push_front(token);
             ++iter;
         } else{
-            Mono token(*Xiter);
-            mpz_init(token.coeff);
-            mpz_add(token.coeff, token.coeff, iter->coeff);
+            Mono token(*iter);
+            mpz_add(token.coeff, token.coeff, Xiter->coeff);
             Ymono.push_front(token);
-            ++Xiter;
             ++iter;
+            ++Xiter;
         }
 
         flag = 0;
@@ -438,6 +567,7 @@ Poly Poly::operator + (Poly & X){
     return Y;
 }
 
+
 Poly Poly::operator - (Poly & X){
 
     forward_list<Mono> Ymono;
@@ -455,6 +585,7 @@ Poly Poly::operator - (Poly & X){
 
         if (flag == 1){
             Mono token(*Xiter);
+            mpz_ui_sub(token.coeff, 0, token.coeff);
             Ymono.push_front(token);
             ++Xiter;
         } else if (flag == -1){
@@ -462,9 +593,8 @@ Poly Poly::operator - (Poly & X){
             Ymono.push_front(token);
             ++iter;
         } else{
-            Mono token(*Xiter);
-            mpz_init(token.coeff);
-            mpz_sub(token.coeff, token.coeff, iter->coeff);
+            Mono token(*iter);
+            mpz_sub(token.coeff, token.coeff, Xiter->coeff);
             Ymono.push_front(token);
             ++Xiter;
             ++iter;
@@ -477,36 +607,71 @@ Poly Poly::operator - (Poly & X){
             flag += 2000;
 	}
 
-    if (flag == 1000){
+    if (flag == 2000){
         while(Xiter != Xiter_end){
             Mono token(*Xiter);
             Ymono.push_front(token);
             ++Xiter;
         }
     }
-    else if(flag == 2000){
+    else if(flag == 1000){
         while(iter != iter_end){
             Mono token(*iter);
             Ymono.push_front(token);
             ++iter;
         }
     }
+    /*
     else if (flag == 3000){
         cout << "flag = 3000" << endl;
     }else{
         cout << "ERROR" << endl;
     }
+    */
 
     Ymono.reverse();
     Poly Y(Ymono);
-
     Y.delete_zero();
 
     return Y;
 }
 
 Poly Poly::operator * (Poly & X){
-    return X;
+    if (isZero() == 0){
+        Poly Y(" ");
+        return Y;
+    }
+
+    if (X.isZero() == 0){
+        Poly Y(" ");
+        return Y;
+    }
+
+    forward_list<Mono> Ymono;
+
+    forward_list<Mono>::iterator iter;
+    forward_list<Mono>::iterator Xiter;
+
+    forward_list<Mono>::iterator iter_end = mono.end();
+    forward_list<Mono>::iterator Xiter_end = X.mono.end();
+
+
+    for (iter = mono.begin(); iter != iter_end; ++iter){
+        for (Xiter = X.mono.begin(); Xiter != Xiter_end; ++Xiter){
+
+            // This code seems to very ugly, but we have to do it since there is 4 linked lists
+            Mono token(iter->product(*Xiter));
+            Ymono.push_front(token);
+        }
+    }
+
+    Ymono.reverse();
+    Poly Y(Ymono);
+    Y.sort();
+    Y.delete_zero();
+
+    // Now, Both this and X are not zero polynomial.
+    return Y;
 }
 
 Poly Poly::operator / (Poly & X){
@@ -541,19 +706,25 @@ bool delete_zero_Help(Mono univariate){
 
 int main(){
 
-    Mono m1("5 x^2 y^2");
+    cout << "###   Monomial Test Case   ###" << endl;
+
+    Mono m1("5 x^2 y^2 z^1");
     Mono m2("3 x^3 y^1");
     Mono m3(" ");
     Mono m4("4 x_1^3 x_2^3 y_2^3");
 
-    //m1.println();
-    //m2.println();
-    //m3.println();
-    //m4.println();
+    m1.println();
+    m2.println();
+    m3.println();
+    m4.println();
 
+    Mono m5(m1.product(m2));
+    m5.println();
+
+    cout << "###   Polynomial Test Case   ###" << endl;
 
     Poly p1("5 x^2 y^3 - 7 x^1 y^4 z^5 + 19 z^1 + 20");
-    Poly p2("7 x^3 y^2 z^2 - 4 x^2 z^1");
+    Poly p2("7 x^3 y^2 z^2 - 4 x^2 z^1 + 30 x^1 y^3");
     Poly p3(" ");
 
     p1.println();
@@ -561,15 +732,22 @@ int main(){
     p3.println();
 
     Poly p4(p1+p2);
-
-    //Poly p4;
-    //p4 = p1+p2;
-
     p4.println();
 
-    Poly p5("-7 x^3 y^2 z^2");
-    Poly p6(p4+p5);
-    //p6.println();
+    Poly p5("7 x^3 y^2 z^2");
+    p5.println();
+    Poly p6(p4-p5);
+    p6.println();
+    Poly p7("7 x^3 y^2 z^2");
+    p7.println();
+
+    Poly p8(p5-p7);
+    p8.println();
+
+    cout << "FIX IT" << endl;
+    Poly p9(p5*p6);
+    p9.println();
+
 
     cout << "NO SEGMENTATION FAULT" << endl;
     return 0;
