@@ -39,6 +39,10 @@ class Poly{
     void println();
     void sort();
 
+    Mono lt();
+    Mono lm();
+    //mpz_t lc();
+
     Poly operator = (Poly &);
     bool operator == (Poly &);
     Poly operator + (Poly &);
@@ -59,6 +63,7 @@ class Poly{
 
 
 bool delete_zero_Help(Mono univariate);
+Poly S_poly(Poly g, Poly h);
 
 
 //**************************************************************
@@ -534,7 +539,6 @@ void Poly::sort(){
         return (lexicographic_order(a,b) >= 0);
         } );
 
-/*
     forward_list<Mono>::iterator rear = mono.begin();
     forward_list<Mono>::iterator front = mono.begin();
 
@@ -554,8 +558,58 @@ void Poly::sort(){
     }
 
     delete_zero();
-    */
 }
+
+Mono Poly::lt(){
+
+    if (mono.empty() == 1){
+        mpz_t a;
+        mpz_init(a);
+        mpz_set_si(a, 0);
+        forward_list<pair<string, int>> b;
+        b.push_front(make_pair(" ", 0));
+        Mono token(a,b);
+        return token;
+    }
+
+
+    mpz_t a;
+    mpz_init(a);
+    mpz_set_si(a, 1);
+
+    Mono token(a, mono.begin()->univariate);
+    return token;
+}
+
+Mono Poly::lm(){
+    if (mono.empty() == 1){
+        mpz_t a;
+        mpz_init(a);
+        mpz_set_si(a, 0);
+        forward_list<pair<string, int>> b;
+        b.push_front(make_pair(" ", 0));
+        Mono token(a,b);
+        return token;
+    }
+
+    Mono token(mono.begin()->coeff, mono.begin()->univariate);
+
+    return token;
+}
+
+/*
+It is a function returning array, hence it is invalid...
+mpz_t Poly::lc(){
+    if (mono.empty() == 1){
+        return 0;
+    }
+
+    mpz_t a;
+    mpz_init(a);
+    mpz_set(a, b);
+    return a;
+}
+*/
 
 
 // Before operator, assume that we have sorted in order
@@ -787,6 +841,9 @@ Poly Poly::operator * (Poly & X){
     return Y;
 }
 
+// Assume that the polynomial is divisible by X
+// Of cousre, it is not a division algorithm
+// We should modify
 Poly Poly::operator / (Poly & X){
     return X;
 }
@@ -808,6 +865,23 @@ bool delete_zero_Help(Mono univariate){
     return (!mpz_cmp_si(univariate.coeff,0));
 }
 
+Poly S_poly(Poly g, Poly h){
+
+/*
+    forward_list<pair<string, int>> gamma;
+
+    forward_list<Mono>::iterator giter = g.begin();
+    forward_list<Mono>::iterator hiter = h.begin();
+
+    for(giter = g.begin(); giter != g.end(); ++giter){
+        for(hiter = h.begin(); hiter != h.end(); ++hiter){
+
+        }
+    }
+    */
+
+    return g;
+}
 
 //**************************************************************
 //**************************************************************
