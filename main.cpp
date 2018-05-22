@@ -26,6 +26,7 @@ class Mono{
         void print();
         void println();
         bool isConstant();
+        bool operator == (Mono &);
         Mono product(Mono multiplicand);
 };
 
@@ -39,6 +40,7 @@ class Poly{
     void sort();
 
     Poly operator = (Poly &);
+    bool operator == (Poly &);
     Poly operator + (Poly &);
     Poly operator - (Poly &);
     Poly operator * (Poly &);
@@ -341,6 +343,33 @@ Mono Mono::product(Mono multiplicand){
     return Y;
 }
 
+bool Mono::operator == (Mono &X){
+    forward_list<pair<string,int>>::iterator iter = univariate.begin();
+    forward_list<pair<string,int>>::iterator Xiter = X.univariate.begin();
+
+    while (true){
+        if (iter->first != Xiter->first){
+            return false;
+        }
+        
+        if (iter->second != Xiter->second){
+            return false;
+        }
+
+        ++iter;
+        ++Xiter;
+
+        if (iter == univariate.end()){
+            if (Xiter == X.univariate.end())
+                return true;
+            return false;
+        }
+
+        if (Xiter == X.univariate.end())
+            return false;
+    }
+}
+
 //**************************************************************
 //**************************************************************
 //
@@ -500,9 +529,32 @@ void Poly::delete_zero(){
 }
 
 void Poly::sort(){
+    // If we want to use another sorting method, then change return condition
     mono.sort( [](const Mono &a, const Mono &b ) {
         return (lexicographic_order(a,b) >= 0);
         } );
+
+/*
+    forward_list<Mono>::iterator rear = mono.begin();
+    forward_list<Mono>::iterator front = mono.begin();
+
+    ++rear;
+    
+    while(rear != mono.end()){
+        if (*rear ==*front){
+            mpz_add(front->coeff, front->coeff, rear->coeff);
+            mpz_init(rear->coeff);
+            rear->univariate.clear();
+            ++rear;
+        }
+        else{
+            ++rear;
+            ++front;
+        }
+    }
+
+    delete_zero();
+    */
 }
 
 
@@ -511,6 +563,8 @@ void Poly::sort(){
 // I think using Karatsuba algorithm is not good for this :(
 // For division with remainder, see pg 599 in Textbook.
 
+// Unfortunately, = operator does not work, due to 'cannot bind lvalue problem'
+// I think there are some operator overloading problems.
 Poly Poly::operator = (Poly & X){
     // Be care not to shallow copy
     // In general, we want to use h = f + g, then use f, g, and h independently.
@@ -535,6 +589,29 @@ Poly Poly::operator = (Poly & X){
    return Y;
 }
 
+bool Poly::operator == (Poly & X){
+    forward_list<Mono>::iterator iter = mono.begin();
+    forward_list<Mono>::iterator Xiter = X.mono.begin();
+
+    
+    while (true){
+
+        if (~(*iter == *Xiter))
+            return false;
+
+        ++iter;
+        ++Xiter;
+
+        if (iter == mono.end()){
+            if (Xiter == X.mono.end())
+                return true;
+            return false;
+        }
+
+        if (Xiter == X.mono.end())
+            return false;
+    }
+}
 
 Poly Poly::operator + (Poly & X){
 
@@ -704,6 +781,7 @@ Poly Poly::operator * (Poly & X){
     Poly Y(Ymono);
     Y.sort();
     Y.delete_zero();
+    Y.sort();
 
     // Now, Both this and X are not zero polynomial.
     return Y;
@@ -779,9 +857,17 @@ int main(){
     Poly p8(p5-p7);
     p8.println();
 
-    Poly p9(p5*p6);
+    Poly p9(p1*p2);
     p9.println();
 
+    Poly f("3 x^2 y^1 + 5 x^1 y^2");
+
+    Poly g("4 x^3 y^2 + 5 x^2 y^3");
+
+    Poly fg(f*g);
+
+    fg.println();
+    
 
     cout << "NO SEGMENTATION FAULT" << endl;
     return 0;
