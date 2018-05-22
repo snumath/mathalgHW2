@@ -22,8 +22,10 @@ class Mono{
         Mono(mpz_t coeff, string vari, int deg);
         Mono(mpz_t coeff, forward_list<pair<string, int>> univariate_input);
         Mono(const Mono &X);
+        ~Mono();
         void print();
         void println();
+        bool isConstant();
         Mono product(Mono multiplicand);
 };
 
@@ -47,6 +49,7 @@ class Poly{
     Poly(string LaTeX);
     Poly(forward_list<Mono> poly);
     Poly(const Poly &);
+    ~Poly();
 
     private:
     void delete_zero();
@@ -90,7 +93,7 @@ Mono::Mono(string LaTeX){
     ss >> token;
     
     if (token.empty()){
-        univariate.push_front(make_pair(" ",0));
+        univariate.push_front(make_pair(" ", 0));
         return;
     }
 
@@ -100,7 +103,14 @@ Mono::Mono(string LaTeX){
         int index = token.find('^');
         univariate.push_front(make_pair(token.substr(0,index), stoi(token.substr(index+1))));
     }
+
+    if (univariate.begin() == univariate.end()){
+        univariate.push_front(make_pair(" ", 0));
+    }
+
     univariate.reverse();
+
+
 }
 
 
@@ -136,6 +146,11 @@ Mono::Mono(const Mono &X){
     }
 
     univariate.reverse();
+}
+
+//Destructor
+Mono::~Mono(){
+    univariate.clear();
 }
 
 int lexicographic_order(Mono lhs, Mono rhs){
@@ -213,7 +228,11 @@ void Mono::print(){
 
     forward_list<pair<string, int>>::iterator iter;
 
-    cout << coeff;
+    gmp_printf("%Zd", coeff);
+
+    if (isConstant() == 1){
+        return;
+    }
 
     for (iter = univariate.begin(); iter !=univariate.end(); ++iter){
         cout << iter->first << "^" << iter->second;
@@ -228,6 +247,11 @@ void Mono::println(){
 
     gmp_printf("%Zd", coeff);
 
+    if (isConstant() == 1){
+        cout << endl;
+        return;
+    }
+
     forward_list<pair<string, int>>::iterator iter;
 
     for (iter = univariate.begin(); iter != univariate.end(); ++iter){
@@ -237,6 +261,13 @@ void Mono::println(){
     cout << endl;
 }
 
+bool Mono::isConstant(){
+    if (univariate.begin() == univariate.end())
+        return true;
+    if (univariate.begin()->second == 0)
+        return true;
+    return false;
+}
 
 Mono Mono::product(Mono multiplicand){
     mpz_t newCoeff;
@@ -244,6 +275,15 @@ Mono Mono::product(Mono multiplicand){
 
     mpz_mul(newCoeff, coeff, multiplicand.coeff);
 
+    if (isConstant() == 1){
+        Mono token(newCoeff, multiplicand.univariate);
+        return token;
+    }
+
+    if (multiplicand.isConstant() == 1){
+        Mono token(newCoeff, univariate);
+        return token;
+    }
 
     forward_list<pair<string, int>> Yuniv;
     int flag = 0;
@@ -251,18 +291,9 @@ Mono Mono::product(Mono multiplicand){
     forward_list<pair<string, int>>::iterator iter = univariate.begin();
     forward_list<pair<string, int>>::iterator Xiter = multiplicand.univariate.begin();
 
-    cout << iter->first << ", " << Xiter->first << endl;
-
-    if (iter->first == " "){
-        cout << 1234 <<endl;
-    }
-
-    if (Xiter->first == " "){
-        cout << 1234 <<endl;
-    }
-
     forward_list<pair<string, int>>::iterator iter_end = univariate.end();
     forward_list<pair<string, int>>::iterator Xiter_end = multiplicand.univariate.end();
+
 
     while(flag == 0){
         flag = iter->first.compare(Xiter->first);
@@ -392,6 +423,10 @@ Poly::Poly(const Poly &X){
     }
 
     mono.reverse();
+}
+
+Poly::~Poly(){
+    mono.clear();
 }
  
 void Poly::insert(Mono token_mono){
@@ -734,17 +769,16 @@ int main(){
     Poly p4(p1+p2);
     p4.println();
 
-    Poly p5("7 x^3 y^2 z^2");
+    Poly p5("-7 x^3 y^2 z^2");
     p5.println();
     Poly p6(p4-p5);
     p6.println();
-    Poly p7("7 x^3 y^2 z^2");
+    Poly p7("-7 x^3 y^2 z^2");
     p7.println();
 
     Poly p8(p5-p7);
     p8.println();
 
-    cout << "FIX IT" << endl;
     Poly p9(p5*p6);
     p9.println();
 
